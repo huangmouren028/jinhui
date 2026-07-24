@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>旺旺自助售货机 · 三维九指标点位评估模型</title>
+<style>
+  :root {
+    --text-primary: #1a1a1a; --text-secondary: #555; --text-tertiary: #888; --text-quaternary: #bbb;
+    --surface: #fff; --surface-muted: #f5f5f5; --surface-raised: #fafafa; --border: #e0e0e0;
+    --danger: #e53935; --positive: #43a047; --warning: #fb8c00; --accent: #1976d2;
+    --chart-1: #1976d2; --chart-2: #e53935; --chart-3: #43a047; --chart-4: #7b1fa2;
+    --font-sans: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;
+    --t-fast: 150ms; --ease-out: cubic-bezier(0.25,0.46,0.45,0.94);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --text-primary: #f0f0f0; --text-secondary: #b0b0b0; --text-tertiary: #808080; --text-quaternary: #555;
+      --surface: #1a1a1a; --surface-muted: #252525; --surface-raised: #2a2a2a; --border: #333; }
+  }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body { font-family:var(--font-sans); color:var(--text-primary); background:var(--surface); line-height:1.6; padding:16px; max-width:900px; margin:0 auto; }
+  .vm-header { margin-bottom:18px; padding-bottom:14px; border-bottom:1px solid var(--border); }
+  .vm-header h1 { font-size:18px; font-weight:600; margin-bottom:4px; }
+  .vm-header .vm-sub { font-size:13px; color:var(--text-tertiary); }
+  .vm-header .vm-meta { font-size:11px; color:var(--text-quaternary); margin-top:6px; }
+
+  .vm-scene-bar { margin-bottom:16px; }
+  .vm-scene-bar-title { font-size:12px; color:var(--text-tertiary); margin-bottom:8px; font-weight:500; }
+  .vm-scene-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
+  @media(min-width:600px){ .vm-scene-grid { grid-template-columns:repeat(6,1fr); } }
+  .vm-scene-btn { padding:7px 4px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--text-secondary); font-size:12px; cursor:pointer; transition:all var(--t-fast); text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; touch-action:manipulation; }
+  .vm-scene-btn:hover { background:var(--surface-muted); }
+  .vm-scene-btn.active { background:var(--text-primary); color:var(--surface); border-color:var(--text-primary); }
+
+  .vm-grid { display:grid; grid-template-columns:1fr; gap:12px; margin-bottom:12px; }
+  @media(min-width:768px){ .vm-grid { grid-template-columns:1fr 1fr; } }
+
+  .vm-card { border:1px solid var(--border); border-radius:12px; padding:14px; background:var(--surface); }
+  .vm-card-title { font-size:14px; font-weight:600; margin-bottom:12px; display:flex; align-items:center; justify-content:space-between; }
+  .vm-badge { font-size:11px; padding:2px 8px; border-radius:6px; background:var(--surface-muted); color:var(--text-tertiary); font-weight:400; }
+  .vm-metric { margin-bottom:14px; }
+  .vm-metric:last-child { margin-bottom:0; }
+  .vm-metric-label { display:flex; justify-content:space-between; font-size:12px; margin-bottom:5px; color:var(--text-secondary); }
+  .vm-metric-label span:last-child { color:var(--text-primary); font-weight:500; font-variant-numeric:tabular-nums; }
+  .vm-slider-wrap { position:relative; height:28px; display:flex; align-items:center; }
+  .vm-slider-wrap input[type="range"] { -webkit-appearance:none; width:100%; height:4px; border-radius:2px; background:var(--surface-muted); outline:none; cursor:pointer; }
+  .vm-slider-wrap input[type="range"]::-webkit-slider-thumb { -webkit-appearance:none; width:18px; height:18px; border-radius:50%; background:var(--text-primary); border:2px solid var(--surface); cursor:pointer; }
+  .vm-ticks { display:flex; justify-content:space-between; font-size:10px; color:var(--text-quaternary); margin-top:2px; padding:0 2px; }
+
+  .vm-result-panel { border:1px solid var(--border); border-radius:12px; padding:16px; background:var(--surface); }
+  .vm-result-top { display:flex; flex-direction:column; gap:16px; }
+  @media(min-width:600px){ .vm-result-top { flex-direction:row; justify-content:space-between; align-items:flex-start; } }
+  .vm-score-section { display:flex; align-items:center; gap:14px; }
+  .vm-score-ring { position:relative; width:100px; height:100px; flex-shrink:0; }
+  .vm-score-ring svg { transform:rotate(-90deg); }
+  .vm-score-text { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center; }
+  .vm-score-num { font-size:28px; font-weight:600; line-height:1; font-variant-numeric:tabular-nums; }
+  .vm-score-label { font-size:11px; color:var(--text-tertiary); margin-top:2px; }
+  .vm-grade-badge { font-size:20px; font-weight:600; padding:5px 14px; border-radius:8px; display:inline-block; }
+  .vm-grade-s { background:color-mix(in srgb,var(--positive) 14%,transparent); color:var(--positive); }
+  .vm-grade-a { background:color-mix(in srgb,var(--chart-1) 14%,transparent); color:var(--chart-1); }
+  .vm-grade-b { background:color-mix(in srgb,var(--warning) 14%,transparent); color:var(--warning); }
+  .vm-grade-c { background:color-mix(in srgb,var(--danger) 14%,transparent); color:var(--danger); }
+
+  .vm-breakdown { flex:1; min-width:200px; }
+  .vm-breakdown-title { font-size:12px; color:var(--text-tertiary); margin-bottom:8px; font-weight:500; }
+  .vm-breakdown-row { display:flex; align-items:center; gap:8px; margin-bottom:9px; }
+  .vm-breakdown-row:last-child { margin-bottom:0; }
+  .vm-breakdown-name { width:80px; font-size:12px; color:var(--text-secondary); flex-shrink:0; }
+  .vm-breakdown-bar-bg { flex:1; height:7px; border-radius:4px; background:var(--surface-muted); overflow:hidden; }
+  .vm-breakdown-bar-fill { height:100%; border-radius:4px; transition:width 200ms var(--ease-out); }
+  .vm-breakdown-score { width:38px; text-align:right; font-size:12px; font-weight:500; font-variant-numeric:tabular-nums; }
+
+  .vm-thresholds { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-top:14px; }
+  @media(min-width:600px){ .vm-thresholds { grid-template-columns:repeat(4,1fr); } }
+  .vm-th-item { text-align:center; padding:10px 6px; border-radius:10px; border:1px solid var(--border); transition:all var(--t-fast); }
+  .vm-th-item.active { border-color:var(--text-primary); background:var(--surface-muted); }
+  .vm-th-item .vm-th-title { font-size:11px; color:var(--text-tertiary); margin-bottom:3px; font-weight:500; }
+  .vm-th-item .vm-th-val { font-size:15px; font-weight:600; font-variant-numeric:tabular-nums; }
+  .vm-th-item .vm-th-desc { font-size:10px; color:var(--text-quaternary); margin-top:2px; }
+
+  .vm-scene-data { margin-top:14px; padding:12px 14px; border-radius:10px; border:1px solid var(--border); background:var(--surface-raised); }
+  .vm-scene-data-title { font-size:12px; font-weight:600; color:var(--text-secondary); margin-bottom:8px; }
+  .vm-scene-data-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+  .vm-sd-label { font-size:10px; color:var(--text-quaternary); }
+  .vm-sd-val { font-size:14px; font-weight:600; font-variant-numeric:tabular-nums; color:var(--text-primary); }
+
+  .vm-detail-box { margin-top:14px; padding:12px 14px; border-radius:10px; background:var(--surface-muted); font-size:12px; color:var(--text-secondary); line-height:1.7; }
+  .vm-detail-box strong { color:var(--text-primary); }
+
+  .vm-actions { margin-top:14px; display:flex; gap:8px; flex-wrap:wrap; }
+  .vm-btn { padding:8px 14px; border-radius:8px; border:1px solid var(--border); background:var(--surface); color:var(--text-primary); font-size:13px; font-family:var(--font-sans); cursor:pointer; transition:all var(--t-fast); touch-action:manipulation; }
+  .vm-btn:hover { background:var(--surface-muted); }
+  .vm-btn-primary { background:var(--text-primary); color:var(--surface); border-color:var(--text-primary); }
+  .vm-btn-primary:hover { opacity:0.88; }
+
+  .vm-footer { margin-top:20px; padding-top:14px; border-top:1px solid var(--border); font-size:11px; color:var(--text-quaternary); line-height:1.6; }
+</style>
+</head>
+<body>
+
+<div class="vm-header">
+  <h1>旺旺自助售货机 · 三维九指标点位评估模型</h1>
+  <div class="vm-sub">基于行业基准数据，实时计算点位综合得分、等级判定与运营建议</div>
+  <div class="vm-meta">核心目标：日均业绩 ≥ 500元（月均 ≥ 15000元）| 保本线：日均89元（月均2667元）</div>
+</div>
+
+<div class="vm-scene-bar">
+  <div class="vm-scene-bar-title">📍 一键加载场景预设</div>
+  <div class="vm-scene-grid" id="scene-buttons">
+    <button class="vm-scene-btn" data-scene="school">🏫 学校</button>
+    <button class="vm-scene-btn" data-scene="hospital">🏥 医院</button>
+    <button class="vm-scene-btn" data-scene="office">🏢 工作场所</button>
+    <button class="vm-scene-btn" data-scene="transport">🚇 交通站点</button>
+    <button class="vm-scene-btn" data-scene="training">📚 教育培训</button>
+    <button class="vm-scene-btn" data-scene="hotel">🏨 酒店住宿</button>
+    <button class="vm-scene-btn" data-scene="scenic">🏔️ 旅游景区</button>
+    <button class="vm-scene-btn" data-scene="mall">🏬 商业场所</button>
+    <button class="vm-scene-btn" data-scene="community">🏘️ 社区</button>
+    <button class="vm-scene-btn" data-scene="service">🛠️ 生活服务</button>
+    <button class="vm-scene-btn" data-scene="leisure">🎮 休闲娱乐</button>
+    <button class="vm-scene-btn" data-scene="gov">🏛️ 政府机构</button>
+  </div>
+</div>
+
+<div class="vm-grid">
+  <div class="vm-card">
+    <div class="vm-card-title">场景流量质量 <span class="vm-badge">权重 35%</span></div>
+    <div class="vm-metric">
+      <div class="vm-metric-label"><span>日均有效人流量</span><span id="val-flow">3000人</span></div>
+      <div class="vm-slider-wrap"><input type="range" id="input-flow" min="0" max="8000" step="100" value="3000"></div>
+      <div class="vm-ticks"><span>0</span><span>4000</span><span>8000+</span></div>
+    </div>
+    <div class="vm-metric">
+      <div class="vm-metric-label"><span>被动停留率（≥2min占比）</span><span id="val-stay">20%</span></div>
+      <div class="vm-slider-wrap"><input type="range" id="input-stay" min="0" max="60" step="1" value="20"></div>
+      <div class="vm-ticks"><span>0%</span><span>30%</span><span>60%</span></div>
+    </div>
+    <div class="vm-metric">
+      <div class="vm-metric-label"><span>动线锁定度（1-5分）</span><span id="val-route">3分</span></div>
+      <div class="vm-slider-wrap"><input type="range" id="input-route" min="1" max="5" step="1" value="3"></div>
+      <div class="vm-ticks"><span>死角1</span><span>一般3</span><span>必经5</span></div>
+    </div>
+  </div>
+
+  <div class="vm-card">
+    <div class="vm-card-title">竞争护城河 <span class="vm-badge">权重 30%</span></div>
+    <div class="vm-metric">
+      <div class="vm-metric-label"><span>50米内同类售货机</span><span id="val-comp-50">0个</span></div>
+      <div class="vm-slider-wrap"><input type="range" id="input-comp-50" min="0" max="5" step="1" value="0"></div>
+      <div class="vm-ticks"><span>0</span><span>2</span><span>5</span></div>
+    </div>
+    <div class="vm-metric">
+      <div class="vm-metric-label"><span>100米内便利店/小卖部</span><span id="val-comp-100">0个</span></div>
+      <div class="vm-slider-wrap"><input type="range" id="input-comp-100" min="0" max="5" step="1" value="0"></div>
+      <div class="vm-ticks"><span>0</span><span>2</span><span>5</span></div>
+    </div>
+    <div class="vm-metric">
+      <div class="vm-metric-label"><span>场景封闭性（1-5分）</span><span id="val-enclose">3分</span></div>
+      <div class="vm-slider-wrap"><input type="range" id="input-enclose" min="1" max="5" step="1" value="3"></div>
+      <div class="vm-ticks"><span>开放1</span><span>半封闭3</span><span>全封闭5</span></div>
+    </div>
+  </div>
+
+  <div class="vm-card">
+    <div class="vm-card-title">客群-产品匹配 <span class="vm-badge">权重 25%</span></div>
+    <div class="vm-metric">
+      <div class="vm-metric-label"><span>目标客群浓度</span><span id="val-target">50%</span></div>
+      <div class="vm-slider-wrap"><input type="range" id="input-target" min="0" max="100" step="5" value="50"></div>
+      <div class="vm-ticks"><span>0%</span><span>50%</span><span>100%</span></div>
+    </div>
+    <div class="vm-metric">
+      <div class="vm-metric-label"><span>消费场景匹配度（1-5分）</span><span id="val-scene">3分</span></div>
+      <div class="vm-slider-wrap"><input type="range" id="input-scene" min="1" max="5" step="1" value="3"></div>
+      <div class="vm-ticks"><span>路过1</span><span>一般3</span><span>强匹配5</span></div>
+    </div>
+    <div class="vm-metric">
+      <div class="vm-metric-label"><span>新品动销率</span><span id="val-new">10%</span></div>
+      <div class="vm-slider-wrap"><input type="range" id="input-new" min="0" max="30" step="1" value="10"></div>
+      <div class="vm-ticks"><span>0%</span><span>15%</span><span>30%</span></div>
+    </div>
+  </div>
+
+  <div class="vm-card">
+    <div class="vm-card-title">经济可行性 <span class="vm-badge">权重 10%</span></div>
+    <div class="vm-metric">
+      <div class="vm-metric-label"><span>点位费占销售额比例</span><span id="val-fee">20%</span></div>
+      <div class="vm-slider-wrap"><input type="range" id="input-fee" min="5" max="40" step="1" value="20"></div>
+      <div class="vm-ticks"><span>5%</span><span>20%</span><span>40%</span></div>
+    </div>
+    <div class="vm-metric">
+      <div class="vm-metric-label"><span>单次补货耗时</span><span id="val-replenish">20分钟</span></div>
+      <div class="vm-slider-wrap"><input type="range" id="input-replenish" min="10" max="60" step="5" value="20"></div>
+      <div class="vm-ticks"><span>10分</span><span>35分</span><span>60分</span></div>
+    </div>
+    <div class="vm-metric">
+      <div class="vm-metric-label"><span>预估日均业绩</span><span id="val-revenue">250元</span></div>
+      <div class="vm-slider-wrap"><input type="range" id="input-revenue" min="0" max="1000" step="10" value="250"></div>
+      <div class="vm-ticks"><span>0</span><span>500</span><span>1000+</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="vm-result-panel">
+  <div class="vm-result-top">
+    <div class="vm-score-section">
+      <div class="vm-score-ring">
+        <svg width="100" height="100" viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="42" fill="none" stroke="var(--surface-muted)" stroke-width="7"/>
+          <circle id="score-circle" cx="50" cy="50" r="42" fill="none" stroke="var(--text-primary)" stroke-width="7" stroke-linecap="round"
+            stroke-dasharray="263.89" stroke-dashoffset="65.97" style="transition:stroke-dashoffset 200ms var(--ease-out)"/>
+        </svg>
+        <div class="vm-score-text">
+          <div class="vm-score-num" id="total-score">75</div>
+          <div class="vm-score-label">综合得分</div>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:12px;color:var(--text-tertiary);margin-bottom:4px;">点位等级</div>
+        <div class="vm-grade-badge vm-grade-a" id="grade-badge">A级 · 优质点位</div>
+      </div>
+    </div>
+    <div class="vm-breakdown">
+      <div class="vm-breakdown-title">四维得分明细（加权后）</div>
+      <div class="vm-breakdown-row"><div class="vm-breakdown-name">场景流量</div><div class="vm-breakdown-bar-bg"><div class="vm-breakdown-bar-fill" id="bar-flow" style="width:70%;background:var(--chart-1)"></div></div><div class="vm-breakdown-score" id="score-flow">24.5</div></div>
+      <div class="vm-breakdown-row"><div class="vm-breakdown-name">竞争护城河</div><div class="vm-breakdown-bar-bg"><div class="vm-breakdown-bar-fill" id="bar-comp" style="width:80%;background:var(--chart-2)"></div></div><div class="vm-breakdown-score" id="score-comp">27.0</div></div>
+      <div class="vm-breakdown-row"><div class="vm-breakdown-name">客群匹配</div><div class="vm-breakdown-bar-bg"><div class="vm-breakdown-bar-fill" id="bar-match" style="width:60%;background:var(--chart-3)"></div></div><div class="vm-breakdown-score" id="score-match">18.8</div></div>
+      <div class="vm-breakdown-row"><div class="vm-breakdown-name">经济可行</div><div class="vm-breakdown-bar-bg"><div class="vm-breakdown-bar-fill" id="bar-econ" style="width:50%;background:var(--chart-4)"></div></div><div class="vm-breakdown-score" id="score-econ">5.0</div></div>
+    </div>
+  </div>
+
+  <div class="vm-thresholds" id="thresholds">
+    <div class="vm-th-item" id="th-s"><div class="vm-th-title">S级 · 黄金</div><div class="vm-th-val">≥75分</div><div class="vm-th-desc">日均≥500元</div></div>
+    <div class="vm-th-item active" id="th-a"><div class="vm-th-title">A级 · 优质</div><div class="vm-th-val">50-74分</div><div class="vm-th-desc">日均250-499元</div></div>
+    <div class="vm-th-item" id="th-b"><div class="vm-th-title">B级 · 潜力</div><div class="vm-th-val">30-49分</div><div class="vm-th-desc">日均100-249元</div></div>
+    <div class="vm-th-item" id="th-c"><div class="vm-th-title">C级 · 低效</div><div class="vm-th-val">&lt;30分</div><div class="vm-th-desc">日均&lt;100元</div></div>
+  </div>
+
+  <div class="vm-scene-data" id="scene-data-panel">
+    <div class="vm-scene-data-title">📊 当前场景行业基准数据</div>
+    <div class="vm-scene-data-grid">
+      <div class="vm-scene-data-item"><div class="vm-sd-label">行业日均业绩</div><div class="vm-sd-val" id="sd-benchmark">150-300元</div></div>
+      <div class="vm-scene-data-item"><div class="vm-sd-label">行业月均业绩</div><div class="vm-sd-val" id="sd-monthly">4500-9000元</div></div>
+      <div class="vm-scene-data-item"><div class="vm-sd-label">投资回收期</div><div class="vm-sd-val" id="sd-payback">8-14个月</div></div>
+    </div>
+  </div>
+
+  <div class="vm-detail-box" id="detail-text">
+    <strong>评估结论：</strong>当前点位综合评分75分，达到A级优质点位标准。建议：稳定运营，优化选品结构以提升客单价，关注新品动销率变化。
+  </div>
+
+  <div class="vm-actions">
+    <button class="vm-btn vm-btn-primary" onclick="resetAll()">↺ 重置</button>
+    <button class="vm-btn" onclick="exportData()">📋 导出数据</button>
+  </div>
+</div>
+
+<div class="vm-footer">
+  <strong>模型说明：</strong>三维九指标评估框架，权重：场景流量35%、竞争护城河30%、客群匹配25%、经济可行10%。<br>
+  <strong>基准线：</strong>行业保本线日均89元（月2667元），基础线日均167元（月5000元），优质线日均250元（月7500元），黄金线日均500元（月15000元）。<br>
+  <strong>使用提示：</strong>点击场景预设一键加载典型参数，拖动滑块自定义调整，评分实时更新。
+</div>
+
+<script>
+const SCENE_PRESETS = {
+  school: {
+    name: "学校", flow: 3500, stay: 30, route: 4, comp50: 0, comp100: 0, enclose: 4,
+    target: 85, scene: 4, newProd: 12, fee: 15, replenish: 15, revenue: 280,
+    benchmark: "150-300元", monthly: "4500-9000元", payback: "8-12个月",
+    note: "高校宿舍区与教学楼大厅表现较好，学生课间零食饮料需求集中。封闭性强、竞品少，但寒暑假存在明显淡季。"
+  },
+  hospital: {
+    name: "医院", flow: 2800, stay: 25, route: 4, comp50: 1, comp100: 1, enclose: 4,
+    target: 60, scene: 4, newProd: 10, fee: 18, replenish: 20, revenue: 320,
+    benchmark: "200-350元", monthly: "6000-10500元", payback: "8-12个月",
+    note: "住院部与候诊区需求稳定，患者及家属对矿泉水、方便食品有刚需。24小时运营夜间仍有消费，但点位费相对较高。"
+  },
+  office: {
+    name: "工作场所", flow: 2500, stay: 20, route: 4, comp50: 1, comp100: 1, enclose: 3,
+    target: 60, scene: 3, newProd: 12, fee: 20, replenish: 20, revenue: 220,
+    benchmark: "120-250元", monthly: "3600-7500元", payback: "10-14个月",
+    note: "写字楼大厅与休息区，白领下午茶与加班场景有需求。一线城市核心商圈可达300+元/日，但多数普通写字楼在150-200元区间。"
+  },
+  transport: {
+    name: "交通站点", flow: 4000, stay: 12, route: 3, comp50: 2, comp100: 2, enclose: 3,
+    target: 50, scene: 3, newProd: 8, fee: 22, replenish: 25, revenue: 250,
+    benchmark: "150-300元", monthly: "4500-9000元", payback: "10-14个月",
+    note: "机场与高铁站表现优于地铁站。旅客对瓶装水需求大，但竞品售货机与便利店密集，且点位费较高，净利润空间有限。"
+  },
+  training: {
+    name: "教育培训", flow: 2000, stay: 25, route: 4, comp50: 0, comp100: 0, enclose: 4,
+    target: 80, scene: 4, newProd: 10, fee: 15, replenish: 18, revenue: 200,
+    benchmark: "100-200元", monthly: "3000-6000元", payback: "10-14个月",
+    note: "培训机构与自习室，学员课间零食饮料需求集中。封闭性强、竞品极少，但人流量低于学校，适合精准投放。"
+  },
+  hotel: {
+    name: "酒店住宿", flow: 1200, stay: 15, route: 3, comp50: 0, comp100: 1, enclose: 3,
+    target: 45, scene: 3, newProd: 8, fee: 18, replenish: 20, revenue: 140,
+    benchmark: "80-150元", monthly: "2400-4500元", payback: "12-18个月",
+    note: "酒店大堂与楼层休息区，旅客对饮料小食有即时需求。消费力较强但人流有限，适合中高端零食饮品组合，回收期较长。"
+  },
+  scenic: {
+    name: "旅游景区", flow: 3500, stay: 20, route: 3, comp50: 1, comp100: 2, enclose: 2,
+    target: 55, scene: 3, newProd: 8, fee: 22, replenish: 30, revenue: 280,
+    benchmark: "150-400元", monthly: "4500-12000元", payback: "8-14个月",
+    note: "游客休息区与观景台位置最佳，旺季可达400+元/日，但淡季可能跌至100元以下。淡旺季波动极大，需考虑季节性库存策略。"
+  },
+  mall: {
+    name: "商业场所", flow: 3000, stay: 15, route: 3, comp50: 2, comp100: 2, enclose: 2,
+    target: 50, scene: 3, newProd: 10, fee: 22, replenish: 22, revenue: 200,
+    benchmark: "120-250元", monthly: "3600-7500元", payback: "10-14个月",
+    note: "商场休息区与卫生间附近转化率高于主通道。但便利店与竞品售货机密集，竞争激烈，需精选具体落位。"
+  },
+  community: {
+    name: "社区", flow: 800, stay: 10, route: 2, comp50: 1, comp100: 1, enclose: 2,
+    target: 35, scene: 2, newProd: 5, fee: 18, replenish: 20, revenue: 100,
+    benchmark: "60-120元", monthly: "1800-3600元", payback: "14-20个月",
+    note: "社区门口与休闲广场，居民日常补给需求。休闲广场比小区门口高约40%，但总体流量有限，旺旺产品匹配度一般，回收期较长。"
+  },
+  service: {
+    name: "生活服务", flow: 1500, stay: 12, route: 3, comp50: 1, comp100: 1, enclose: 2,
+    target: 40, scene: 2, newProd: 6, fee: 18, replenish: 20, revenue: 130,
+    benchmark: "80-150元", monthly: "2400-4500元", payback: "12-18个月",
+    note: "加油站、政务大厅、银行网点等，人流稳定但消费目的性强。饮料需求为主，零食为辅，适合标准化饮品售货机。"
+  },
+  leisure: {
+    name: "休闲娱乐", flow: 2500, stay: 25, route: 4, comp50: 1, comp100: 1, enclose: 3,
+    target: 70, scene: 4, newProd: 12, fee: 20, replenish: 22, revenue: 240,
+    benchmark: "150-280元", monthly: "4500-8400元", payback: "8-12个月",
+    note: "游乐园、电玩城、影院等，家庭娱乐中心需求旺盛。儿童群体集中，与旺旺产品高度匹配，客单价和复购率较好。"
+  },
+  gov: {
+    name: "政府机构", flow: 1000, stay: 12, route: 3, comp50: 0, comp100: 0, enclose: 4,
+    target: 40, scene: 2, newProd: 6, fee: 12, replenish: 20, revenue: 110,
+    benchmark: "60-120元", monthly: "1800-3600元", payback: "14-20个月",
+    note: "政务大厅与办事大厅，人流量中等但封闭性强、竞品极少。点位费低是优势，但消费场景匹配度一般，以饮料为主，回收期较长。"
+  }
+};
+
+const inputs = {
+  flow: document.getElementById('input-flow'), stay: document.getElementById('input-stay'), route: document.getElementById('input-route'),
+  comp50: document.getElementById('input-comp-50'), comp100: document.getElementById('input-comp-100'), enclose: document.getElementById('input-enclose'),
+  target: document.getElementById('input-target'), scene: document.getElementById('input-scene'), newProd: document.getElementById('input-new'),
+  fee: document.getElementById('input-fee'), replenish: document.getElementById('input-replenish'), revenue: document.getElementById('input-revenue'),
+};
+const labels = {
+  flow: document.getElementById('val-flow'), stay: document.getElementById('val-stay'), route: document.getElementById('val-route'),
+  comp50: document.getElementById('val-comp-50'), comp100: document.getElementById('val-comp-100'), enclose: document.getElementById('val-enclose'),
+  target: document.getElementById('val-target'), scene: document.getElementById('val-scene'), newProd: document.getElementById('val-new'),
+  fee: document.getElementById('val-fee'), replenish: document.getElementById('val-replenish'), revenue: document.getElementById('val-revenue'),
+};
+
+function calc() {
+  const v = {
+    flow: parseInt(inputs.flow.value), stay: parseInt(inputs.stay.value), route: parseInt(inputs.route.value),
+    comp50: parseInt(inputs.comp50.value), comp100: parseInt(inputs.comp100.value), enclose: parseInt(inputs.enclose.value),
+    target: parseInt(inputs.target.value), scene: parseInt(inputs.scene.value), newProd: parseInt(inputs.newProd.value),
+    fee: parseInt(inputs.fee.value), replenish: parseInt(inputs.replenish.value), revenue: parseInt(inputs.revenue.value),
+  };
+  labels.flow.textContent = v.flow + '人'; labels.stay.textContent = v.stay + '%'; labels.route.textContent = v.route + '分';
+  labels.comp50.textContent = v.comp50 + '个'; labels.comp100.textContent = v.comp100 + '个'; labels.enclose.textContent = v.enclose + '分';
+  labels.target.textContent = v.target + '%'; labels.scene.textContent = v.scene + '分'; labels.newProd.textContent = v.newProd + '%';
+  labels.fee.textContent = v.fee + '%'; labels.replenish.textContent = v.replenish + '分钟'; labels.revenue.textContent = v.revenue + '元';
+
+  let sFlow = Math.min(v.flow / 5000, 1) * 40 + Math.min(v.stay / 30, 1) * 35 + (v.route / 5) * 25;
+  sFlow = Math.min(sFlow, 100);
+  let sComp = Math.max(0, 100 - v.comp50 * 16);
+  sComp = Math.max(0, sComp - v.comp100 * 10);
+  sComp = sComp * 0.7 + (v.enclose / 5) * 30;
+  sComp = Math.min(Math.max(sComp, 0), 100);
+  let sMatch = (v.target / 100) * 40 + (v.scene / 5) * 35 + Math.min(v.newProd / 15, 1) * 25;
+  sMatch = Math.min(sMatch, 100);
+  let sEcon = Math.max(0, 100 - Math.max(0, v.fee - 15) * 4);
+  sEcon = sEcon * 0.7 + Math.max(0, 100 - Math.max(0, v.replenish - 20) * 2) * 0.3;
+  sEcon = Math.min(Math.max(sEcon, 0), 100);
+
+  const total = sFlow * 0.35 + sComp * 0.30 + sMatch * 0.25 + sEcon * 0.10;
+  const totalRounded = Math.round(total);
+
+  const circle = document.getElementById('score-circle');
+  const circumference = 2 * Math.PI * 42;
+  circle.style.strokeDashoffset = circumference * (1 - total / 100);
+  let ringColor = 'var(--text-primary)';
+  if (totalRounded >= 75) ringColor = 'var(--positive)';
+  else if (totalRounded >= 50) ringColor = 'var(--chart-1)';
+  else if (totalRounded >= 30) ringColor = 'var(--warning)';
+  else ringColor = 'var(--danger)';
+  circle.style.stroke = ringColor;
+
+  document.getElementById('total-score').textContent = totalRounded;
+  let grade, gradeClass, gradeText, detail;
+  if (totalRounded >= 75) {
+    grade = 'S'; gradeClass = 'vm-grade-s'; gradeText = 'S级 · 黄金点位';
+    detail = '<strong>评估结论：</strong>综合评分' + totalRounded + '分，达到<strong>S级黄金点位</strong>标准。建议：优先在该场景周边加密铺设，作为标杆复制推广。预估日均业绩可达500元以上（月15000元+），投资回收期6-10个月。';
+  } else if (totalRounded >= 50) {
+    grade = 'A'; gradeClass = 'vm-grade-a'; gradeText = 'A级 · 优质点位';
+    detail = '<strong>评估结论：</strong>综合评分' + totalRounded + '分，达到<strong>A级优质点位</strong>标准。建议：稳定运营，优化选品结构提升客单价，关注新品动销率。预估日均业绩250-499元（月7500-15000元）。';
+  } else if (totalRounded >= 30) {
+    grade = 'B'; gradeClass = 'vm-grade-b'; gradeText = 'B级 · 潜力点位';
+    detail = '<strong>评估结论：</strong>综合评分' + totalRounded + '分，属于<strong>B级潜力点位</strong>。建议：给予3个月培育期，同步开展地推促销激活消费。预估日均业绩100-249元（月3000-7500元），接近或达到月均5000元基础线。';
+  } else {
+    grade = 'C'; gradeClass = 'vm-grade-c'; gradeText = 'C级 · 低效点位';
+    detail = '<strong>评估结论：</strong>综合评分' + totalRounded + '分，属于<strong>C级低效点位</strong>。建议：连续3个月低于保本线（日均89元/月2667元）则启动撤机评估，释放资源迁移至已验证场景。';
+  }
+  const badge = document.getElementById('grade-badge');
+  badge.className = 'vm-grade-badge ' + gradeClass; badge.textContent = gradeText;
+  document.getElementById('detail-text').innerHTML = detail;
+
+  document.getElementById('bar-flow').style.width = sFlow + '%';
+  document.getElementById('score-flow').textContent = (sFlow * 0.35).toFixed(1);
+  document.getElementById('bar-comp').style.width = sComp + '%';
+  document.getElementById('score-comp').textContent = (sComp * 0.30).toFixed(1);
+  document.getElementById('bar-match').style.width = sMatch + '%';
+  document.getElementById('score-match').textContent = (sMatch * 0.25).toFixed(1);
+  document.getElementById('bar-econ').style.width = sEcon + '%';
+  document.getElementById('score-econ').textContent = (sEcon * 0.10).toFixed(1);
+
+  ['th-s','th-a','th-b','th-c'].forEach(id => document.getElementById(id).classList.remove('active'));
+  if (grade === 'S') document.getElementById('th-s').classList.add('active');
+  else if (grade === 'A') document.getElementById('th-a').classList.add('active');
+  else if (grade === 'B') document.getElementById('th-b').classList.add('active');
+  else document.getElementById('th-c').classList.add('active');
+}
+
+function loadScene(key) {
+  const d = SCENE_PRESETS[key]; if (!d) return;
+  inputs.flow.value = d.flow; inputs.stay.value = d.stay; inputs.route.value = d.route;
+  inputs.comp50.value = d.comp50; inputs.comp100.value = d.comp100; inputs.enclose.value = d.enclose;
+  inputs.target.value = d.target; inputs.scene.value = d.scene; inputs.newProd.value = d.newProd;
+  inputs.fee.value = d.fee; inputs.replenish.value = d.replenish; inputs.revenue.value = d.revenue;
+  document.getElementById('sd-benchmark').textContent = d.benchmark;
+  document.getElementById('sd-monthly').textContent = d.monthly;
+  document.getElementById('sd-payback').textContent = d.payback;
+  document.querySelectorAll('.vm-scene-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.querySelector('.vm-scene-btn[data-scene="' + key + '"]');
+  if (btn) btn.classList.add('active');
+  calc();
+}
+
+function resetAll() {
+  inputs.flow.value = 3000; inputs.stay.value = 20; inputs.route.value = 3;
+  inputs.comp50.value = 0; inputs.comp100.value = 0; inputs.enclose.value = 3;
+  inputs.target.value = 50; inputs.scene.value = 3; inputs.newProd.value = 10;
+  inputs.fee.value = 20; inputs.replenish.value = 20; inputs.revenue.value = 250;
+  document.getElementById('sd-benchmark').textContent = '150-300元';
+  document.getElementById('sd-monthly').textContent = '4500-9000元';
+  document.getElementById('sd-payback').textContent = '8-14个月';
+  document.querySelectorAll('.vm-scene-btn').forEach(b => b.classList.remove('active'));
+  calc();
+}
+
+function exportData() {
+  const v = { flow: parseInt(inputs.flow.value), stay: parseInt(inputs.stay.value), route: parseInt(inputs.route.value), comp50: parseInt(inputs.comp50.value), comp100: parseInt(inputs.comp100.value), enclose: parseInt(inputs.enclose.value), target: parseInt(inputs.target.value), scene: parseInt(inputs.scene.value), newProd: parseInt(inputs.newProd.value), fee: parseInt(inputs.fee.value), replenish: parseInt(inputs.replenish.value), revenue: parseInt(inputs.revenue.value) };
+  let sFlow = Math.min(v.flow / 5000, 1) * 40 + Math.min(v.stay / 30, 1) * 35 + (v.route / 5) * 25; sFlow = Math.min(sFlow, 100);
+  let sComp = Math.max(0, 100 - v.comp50 * 16); sComp = Math.max(0, sComp - v.comp100 * 10); sComp = sComp * 0.7 + (v.enclose / 5) * 30; sComp = Math.min(Math.max(sComp, 0), 100);
+  let sMatch = (v.target / 100) * 40 + (v.scene / 5) * 35 + Math.min(v.newProd / 15, 1) * 25; sMatch = Math.min(sMatch, 100);
+  let sEcon = Math.max(0, 100 - Math.max(0, v.fee - 15) * 4); sEcon = sEcon * 0.7 + Math.max(0, 100 - Math.max(0, v.replenish - 20) * 2) * 0.3; sEcon = Math.min(Math.max(sEcon, 0), 100);
+  const total = Math.round(sFlow * 0.35 + sComp * 0.30 + sMatch * 0.25 + sEcon * 0.10);
+  const grade = total >= 75 ? 'S' : total >= 50 ? 'A' : total >= 30 ? 'B' : 'C';
+  const exportObj = { 评估时间: new Date().toLocaleString('zh-CN'), 综合评分: total, 点位等级: grade, 维度得分: { 场景流量质量: (sFlow * 0.35).toFixed(1), 竞争护城河: (sComp * 0.30).toFixed(1), 客群产品匹配: (sMatch * 0.25).toFixed(1), 经济可行性: (sEcon * 0.10).toFixed(1) }, 输入参数: v };
+  const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = '点位评估_' + grade + '级_' + new Date().toISOString().slice(0, 10) + '.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+Object.values(inputs).forEach(el => el.addEventListener('input', calc));
+document.querySelectorAll('.vm-scene-btn').forEach(btn => { btn.addEventListener('click', () => loadScene(btn.dataset.scene)); });
+calc();
+</script>
+</body>
+</html>
